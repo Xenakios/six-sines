@@ -29,6 +29,9 @@
 #include "ui/six-sines-editor.h"
 
 #include <clapwrapper/vst3.h>
+#include <mutex>
+
+#include "C:/develop/six-sines/libs/osc_adapter/osc_adapter.h"
 
 namespace baconpaul::six_sines
 {
@@ -46,6 +49,7 @@ using plugHelper_t = clap::helpers::Plugin<misLevel, checkLevel>;
 
 struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
 {
+    std::unique_ptr<sst::osc_adapter::OSCAdapter> oscAdapter;
     SixSinesClap(const clap_host *h) : plugHelper_t(getDescriptor(), h)
     {
         engine = std::make_unique<Synth>();
@@ -55,7 +59,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
         clapJuceShim = std::make_unique<sst::clap_juce_shim::ClapJuceShim>(this);
         clapJuceShim->setResizable(false);
     }
-    virtual ~SixSinesClap() {};
+    virtual ~SixSinesClap(){};
 
     std::unique_ptr<Synth> engine;
     size_t blockPos{0};
@@ -65,9 +69,18 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
                   uint32_t maxFrameCount) noexcept override
     {
         engine->setSampleRate(sampleRate);
+        oscAdapter = std::make_unique<sst::osc_adapter::OSCAdapter>(clapPlugin());
+        oscAdapter->startWith(7001, 0);
         return true;
     }
-
+    void deactivate() noexcept override
+    {
+        if (oscAdapter)
+        {
+            oscAdapter->stop();
+            oscAdapter = nullptr;
+        }
+    }
     void onMainThread() noexcept override {}
 
     bool implementsAudioPorts() const noexcept override { return true; }
@@ -108,6 +121,18 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
 
     clap_process_status process(const clap_process *process) noexcept override
     {
+        {
+            std::lock_guard<choc::threading::SpinLock> oscLocker(oscAdapter->spinLock);
+            auto oscInEvents = oscAdapter->getInputEventQueue();
+            auto numOscEvents = oscInEvents->size(oscInEvents);
+            for (int i = 0; i < numOscEvents; ++i)
+            {
+                auto ev = oscInEvents->get(oscInEvents, i);
+                handleEvent(ev);
+            }
+            oscAdapter->eventList.clear();
+        }
+
         auto ev = process->in_events;
         auto outq = process->out_events;
         auto sz = ev->size(ev);
