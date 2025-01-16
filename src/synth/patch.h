@@ -584,6 +584,11 @@ struct Patch
                           .withGroupName(name(idx))
                           .withID(id(27, idx))
                           .withDefault(0)),
+              overdrive(boolMd()
+                            .withName(name(idx) + " Overdrive")
+                            .withGroupName(name(idx))
+                            .withDefault(false)
+                            .withID(id(28, idx))),
               ModulationMixin(name(idx), id(40, idx)),
               modtarget(scpu::make_array_lambda<Param, numModsPer>(
                   [this, idx](int i)
@@ -610,14 +615,14 @@ struct Patch
             return name(index);
         }
 
-        Param fbLevel, lfoToFB, envToFB;
+        Param fbLevel, lfoToFB, envToFB, overdrive;
         Param active;
 
         std::array<Param, numModsPer> modtarget;
 
         std::vector<Param *> params()
         {
-            std::vector<Param *> res{&fbLevel, &active, &lfoToFB, &envToFB};
+            std::vector<Param *> res{&fbLevel, &active, &lfoToFB, &envToFB, &overdrive};
             appendDAHDSRParams(res);
             appendLFOParams(res);
 
@@ -1147,6 +1152,18 @@ struct Patch
                           {SampleRateStrategy::SR_176192, "176.4/192 kHz"},
                           {SampleRateStrategy::SR_220240, "220.5/240 kHz"},
                       })),
+              resampleEngine(intMd()
+                                 .withName(name() + " Resampler Engine")
+                                 .withGroupName(name())
+                                 .withDefault(ResamplerEngine::SRC_FAST)
+                                 .withRange(ResamplerEngine::SRC_FAST, ResamplerEngine::LANCZOS)
+                                 .withID(id(41))
+                                 .withUnorderedMapFormatting({
+                                     {ResamplerEngine::SRC_FAST, "SRC Fast (rec)"},
+                                     {ResamplerEngine::SRC_MEDIUM, "SRC Medium"},
+                                     {ResamplerEngine::SRC_BEST, "SRC Expensive"},
+                                     {ResamplerEngine::LANCZOS, "Lanczos A=4"},
+                                 })),
               ModulationMixin(name(), id(120)),
               modtarget(scpu::make_array_lambda<Param, numModsPer>(
                   [this](int i)
@@ -1177,7 +1194,7 @@ struct Patch
         Param mpeActive, mpeBendRange;
         Param octTranspose, fineTune, pan, lfoDepth;
         Param attackFloorOnRetrig, rephaseOnRetrigger;
-        Param sampleRateStrategy;
+        Param sampleRateStrategy, resampleEngine;
 
         std::array<Param, numModsPer> modtarget;
 
@@ -1203,7 +1220,8 @@ struct Patch
                                      &lfoDepth,
                                      &attackFloorOnRetrig,
                                      &rephaseOnRetrigger,
-                                     &sampleRateStrategy};
+                                     &sampleRateStrategy,
+                                     &resampleEngine};
             appendDAHDSRParams(res);
 
             for (int i = 0; i < numModsPer; ++i)
