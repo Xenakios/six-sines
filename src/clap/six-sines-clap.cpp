@@ -23,6 +23,8 @@
 #include <clap/helpers/host-proxy.hxx>
 
 #include <memory>
+#include "sst/plugininfra/patch-support/patch_base_clap_adapter.h"
+
 #include "sst/voicemanager/midi1_to_voicemanager.h"
 #include "sst/clap_juce_shim/clap_juce_shim.h"
 
@@ -229,8 +231,12 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
             case CLAP_EVENT_PARAM_VALUE:
             {
                 auto pevt = reinterpret_cast<const clap_event_param_value *>(nextEvent);
-                engine->handleParamValue(static_cast<baconpaul::six_sines::Param *>(pevt->cookie),
-                                         pevt->param_id, pevt->value);
+                auto par =
+                    sst::plugininfra::patch_support::paramFromClapEvent<Param>(pevt, engine->patch);
+                if (par)
+                {
+                    engine->handleParamValue(par, pevt->param_id, pevt->value);
+                }
             }
             break;
 
@@ -255,49 +261,13 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     bool stateSave(const clap_ostream *ostream) noexcept override
     {
         engine->prepForStream();
-        auto ss = engine->patch.toState();
-        auto c = ss.c_str();
-        auto s = ss.length() + 1; // write the null terminator
-        while (s > 0)
-        {
-            auto r = ostream->write(ostream, c, s);
-            if (r < 0)
-                return false;
-            s -= r;
-            c += r;
-        }
-        return true;
+        return sst::plugininfra::patch_support::patchToOutStream(engine->patch, ostream);
     }
     bool stateLoad(const clap_istream *istream) noexcept override
     {
-        static constexpr uint32_t initSize = 1 << 16, chunkSize = 1 << 8;
-        std::vector<char> buffer;
-        buffer.resize(initSize);
-
-        int64_t rd{0};
-        int64_t totalRd{0};
-        auto bp = buffer.data();
-
-        while ((rd = istream->read(istream, bp, chunkSize)) > 0)
-        {
-            bp += rd;
-            totalRd += rd;
-            if (totalRd >= buffer.size() - chunkSize - 1)
-            {
-                buffer.resize(buffer.size() * 2);
-                bp = buffer.data() + totalRd;
-            }
-        }
-        buffer[totalRd] = 0;
-
-        if (totalRd == 0)
-        {
-            SXSNLOG("Received stream size 0. Invalid state");
+        if (!sst::plugininfra::patch_support::inStreamToPatch(istream, engine->patch))
             return false;
-        }
 
-        auto data = std::string(buffer.data());
-        engine->patch.fromState(data);
         engine->postLoad();
         _host.paramsRequestFlush();
         return true;
@@ -307,49 +277,22 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     uint32_t paramsCount() const noexcept override { return engine->patch.params.size(); }
     bool paramsInfo(uint32_t paramIndex, clap_param_info *info) const noexcept override
     {
-        auto *param = engine->patch.params[paramIndex];
-        auto &md = param->meta;
-        md.toClapParamInfo<CLAP_NAME_SIZE, clap_param_info_t>(info);
-        info->cookie = (void *)param;
-        return true;
+        return sst::plugininfra::patch_support::patchParamsInfo(paramIndex, info, engine->patch);
     }
     bool paramsValue(clap_id paramId, double *value) noexcept override
     {
-        *value = engine->patch.paramMap[paramId]->value;
-        return true;
+        return sst::plugininfra::patch_support::patchParamsValue(paramId, value, engine->patch);
     }
     bool paramsValueToText(clap_id paramId, double value, char *display,
                            uint32_t size) noexcept override
     {
-        auto it = engine->patch.paramMap.find(paramId);
-        if (it == engine->patch.paramMap.end())
-        {
-            return false;
-        }
-        auto valdisp = it->second->meta.valueToString(value);
-        if (!valdisp.has_value())
-            return false;
-
-        strncpy(display, valdisp->c_str(), size);
-        display[size - 1] = 0;
-        return true;
+        return sst::plugininfra::patch_support::patchParamsValueToText(paramId, value, display,
+                                                                       size, engine->patch);
     }
     bool paramsTextToValue(clap_id paramId, const char *display, double *value) noexcept override
     {
-        auto it = engine->patch.paramMap.find(paramId);
-        if (it == engine->patch.paramMap.end())
-        {
-            return false;
-        }
-        std::string err;
-        auto val = it->second->meta.valueFromString(display, err);
-        if (!val.has_value())
-        {
-            SXSNLOG("Error converting '" << display << "' : " << err);
-            return false;
-        }
-        *value = *val;
-        return true;
+        return sst::plugininfra::patch_support::patchParamsTextToValue(paramId, display, value,
+                                                                       engine->patch);
     }
     void paramsFlush(const clap_input_events *in, const clap_output_events *out) noexcept override
     {
@@ -397,7 +340,10 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     {
         return 16;
     }
-    static uint32_t vst3_supportedNoteExpressions(const clap_plugin *plugin) { return 0; }
+    static uint32_t vst3_supportedNoteExpressions(const clap_plugin *plugin)
+    {
+        return clap_supported_note_expressions::AS_VST3_NOTE_EXPRESSION_TUNING;
+    }
 
     const void *extension(const char *id) noexcept override
     {

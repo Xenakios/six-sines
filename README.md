@@ -8,6 +8,8 @@ If you want to read a manual, [go here](doc/manual.md)
 
 If you want to download a release or recent version, [go here](https://github.com/baconpaul/six-sines/releases)
 
+And please read the [acknowldgements](doc/ack.md) for a list of thanks.
+
 ## Hey are there any demos of this?
 
 Kinsey Dulcet, who designed many of the factory patches, has a demo
@@ -15,6 +17,12 @@ track showing the more-80s-inspired sounds you can make. She's also
 working on a more 2020s inspired version, and that's pretty exciting!
 
 [Listen to Kinsey's track, 'Retrocade Nights'](https://soundcloud.com/kinseydulcet/retrocade-nights-six-sines-demo)
+
+baconpaul also made a test track before 1.0 to make sure everything worked.
+The track is less exciting, but shows some of the feedback-drum-features
+we added after Kinsey made her track
+
+[Listen tp Paul's 'Six Sines Test Track'](https://soundcloud.com/baconpaul/six-sines-test-track)
 
 ## Background
 
