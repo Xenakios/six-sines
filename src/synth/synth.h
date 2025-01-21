@@ -19,6 +19,7 @@
 #include <memory>
 #include <array>
 
+#include "clap/events.h"
 #include "sst/basic-blocks/dsp/LanczosResampler.h"
 #include "samplerate.h"
 
@@ -205,6 +206,9 @@ struct Synth
             {
             case CLAP_NOTE_EXPRESSION_TUNING:
                 v->voiceValues.noteExpressionTuningInSemis = val;
+                break;
+            case CLAP_NOTE_EXPRESSION_BRIGHTNESS:
+                v->voiceValues.mpeTimbre = val;
                 break;
             default:
                 break;
