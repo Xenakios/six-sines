@@ -13,6 +13,8 @@
  * The source code and license are at https://github.com/baconpaul/six-sines
  */
 
+#include "clap/events.h"
+#include "clap/helpers/event-list.hh"
 #include "configuration.h"
 #include <clap/clap.h>
 
@@ -72,7 +74,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     {
         engine->setSampleRate(sampleRate);
         oscAdapter = std::make_unique<sst::osc_adapter::OSCAdapter>(clapPlugin());
-        oscAdapter->startWith(7001, 0);
+        oscAdapter->startWith(7001, 53281);
         return true;
     }
     void deactivate() noexcept override
@@ -120,7 +122,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
         strncpy(info->name, "Note Input", CLAP_NAME_SIZE - 1);
         return true;
     }
-
+    clap::helpers::EventList outEventList;
     clap_process_status process(const clap_process *process) noexcept override
     {
         {
@@ -136,7 +138,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
         }
 
         auto ev = process->in_events;
-        auto outq = process->out_events;
+        auto outq = outEventList.clapOutputEvents();
         auto sz = ev->size(ev);
 
         const clap_event_header_t *nextEvent{nullptr};
@@ -194,6 +196,21 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
             else
                 nextEvent = nullptr;
         }
+        auto count = outEventList.size();
+        auto plugin_out_q = process->out_events;
+        auto osc_out_q = oscAdapter->getOutputEventQueue();
+        for (size_t i = 0; i < count; ++i)
+        {
+            auto ev = outEventList.get(i);
+            plugin_out_q->try_push(plugin_out_q, ev);
+            if (ev->type == CLAP_EVENT_PARAM_GESTURE_END || ev->type == CLAP_EVENT_PARAM_VALUE)
+            {
+                oscAdapter->spinLock.lock();
+                osc_out_q->try_push(osc_out_q, ev);
+                oscAdapter->spinLock.unlock();
+            }
+        }
+        outEventList.clear();
         return CLAP_PROCESS_CONTINUE;
     }
 
