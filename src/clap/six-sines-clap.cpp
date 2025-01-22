@@ -35,7 +35,7 @@
 #include <clapwrapper/vst3.h>
 #include <mutex>
 
-#include "C:/develop/six-sines/libs/osc_adapter/osc_adapter.h"
+#include "C:/develop/six-sines/libs/sst-opensoundcontrol-clap/osc_adapter.h"
 
 namespace baconpaul::six_sines
 {
@@ -224,18 +224,17 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
             else
                 nextEvent = nullptr;
         }
+        // post plugin produced events both for host and the OSC adapter
         auto count = outEventList.size();
         auto plugin_out_q = process->out_events;
-        auto osc_out_q = oscAdapter->getOutputEventQueue();
         for (size_t i = 0; i < count; ++i)
         {
             auto ev = outEventList.get(i);
             plugin_out_q->try_push(plugin_out_q, ev);
-            if (oscAdapter->wantEvent(ev->type))
+            if (oscAdapter)
             {
-                oscAdapter->spinLock.lock();
-                osc_out_q->try_push(osc_out_q, ev);
-                oscAdapter->spinLock.unlock();
+                // at the moment this does some terrible locking internally
+                oscAdapter->postEventForOscOutput(ev);
             }
         }
         outEventList.clear();
