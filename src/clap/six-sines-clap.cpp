@@ -35,7 +35,7 @@
 #include <clapwrapper/vst3.h>
 #include <mutex>
 
-#include "C:/develop/six-sines/libs/sst-opensoundcontrol-clap/osc_adapter.h"
+#include "../../libs/sst-opensoundcontrol-clap/osc_adapter.h"
 
 namespace baconpaul::six_sines
 {
