@@ -231,7 +231,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
         {
             auto ev = outEventList.get(i);
             plugin_out_q->try_push(plugin_out_q, ev);
-            if (ev->type == CLAP_EVENT_PARAM_GESTURE_END || ev->type == CLAP_EVENT_PARAM_VALUE)
+            if (oscAdapter->wantEvent(ev->type))
             {
                 oscAdapter->spinLock.lock();
                 osc_out_q->try_push(osc_out_q, ev);
