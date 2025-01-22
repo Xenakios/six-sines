@@ -74,7 +74,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
                   uint32_t maxFrameCount) noexcept override
     {
         engine->setSampleRate(sampleRate);
-        oscAdapter = std::make_unique<sst::osc_adapter::OSCAdapter>(clapPlugin());
+        oscAdapter = std::make_unique<sst::osc_adapter::OSCAdapter>(clapPlugin(),this->_host.host());
         oscAdapter->startWith(7001, 53281);
         return true;
     }
@@ -86,7 +86,11 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
             oscAdapter = nullptr;
         }
     }
-    void onMainThread() noexcept override {}
+    void onMainThread() noexcept override 
+    {
+        if (oscAdapter)
+            oscAdapter->onMainThread();
+    }
 
     bool implementsAudioPorts() const noexcept override { return true; }
     uint32_t audioPortsCount(bool isInput) const noexcept override
