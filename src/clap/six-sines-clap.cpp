@@ -74,7 +74,8 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
                   uint32_t maxFrameCount) noexcept override
     {
         engine->setSampleRate(sampleRate);
-        oscAdapter = std::make_unique<sst::osc_adapter::OSCAdapter>(clapPlugin(),this->_host.host());
+        oscAdapter =
+            std::make_unique<sst::osc_adapter::OSCAdapter>(clapPlugin(), this->_host.host());
         oscAdapter->startWith(7001, 53281);
         return true;
     }
@@ -86,7 +87,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
             oscAdapter = nullptr;
         }
     }
-    void onMainThread() noexcept override 
+    void onMainThread() noexcept override
     {
         if (oscAdapter)
             oscAdapter->onMainThread();
@@ -145,16 +146,12 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     clap::helpers::EventList outEventList;
     clap_process_status process(const clap_process *process) noexcept override
     {
+        auto oscmsg = oscAdapter->fromOscThread.pop();
+        while (oscmsg.has_value())
         {
-            std::lock_guard<choc::threading::SpinLock> oscLocker(oscAdapter->spinLock);
-            auto oscInEvents = oscAdapter->getInputEventQueue();
-            auto numOscEvents = oscInEvents->size(oscInEvents);
-            for (int i = 0; i < numOscEvents; ++i)
-            {
-                auto ev = oscInEvents->get(oscInEvents, i);
-                handleEvent(ev);
-            }
-            oscAdapter->eventList.clear();
+            auto ev = (const clap_event_header *)&(*oscmsg);
+            handleEvent(ev);
+            oscmsg = oscAdapter->fromOscThread.pop();
         }
 
         auto ev = process->in_events;
@@ -233,7 +230,6 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
             plugin_out_q->try_push(plugin_out_q, ev);
             if (oscAdapter)
             {
-                // at the moment this does some terrible locking internally
                 oscAdapter->postEventForOscOutput(ev);
             }
         }
