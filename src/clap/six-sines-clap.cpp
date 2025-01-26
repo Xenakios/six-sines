@@ -76,7 +76,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
         engine->setSampleRate(sampleRate);
         oscAdapter =
             std::make_unique<sst::osc_adapter::OSCAdapter>(clapPlugin(), this->_host.host());
-        oscAdapter->startWith(7001, 53281);
+        oscAdapter->startWith(7001, 7002);
         return true;
     }
     void deactivate() noexcept override
