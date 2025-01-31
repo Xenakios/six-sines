@@ -60,6 +60,9 @@ void Voice::attack()
 
     voiceValues.setGated(true);
     voiceValues.panExpression = 0.0f;
+    voiceValues.noteExpressionTuningInSemis = 0.0;
+    voiceValues.mpePressure = 0.0;
+    voiceValues.mpeTimbre = 0.0;
 }
 
 void Voice::renderBlock()

@@ -217,7 +217,7 @@ struct Synth
                 v->voiceValues.panExpression = -1.0f + 2.0f * val;
                 break;
             case CLAP_NOTE_EXPRESSION_PRESSURE:
-                v->voiceValues.polyAt = val;
+                v->voiceValues.mpePressure = val;
                 break;
             default:
                 break;
