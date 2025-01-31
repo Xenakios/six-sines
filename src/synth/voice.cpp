@@ -59,6 +59,7 @@ void Voice::attack()
         n.attack();
 
     voiceValues.setGated(true);
+    voiceValues.panExpression = 0.0f;
 }
 
 void Voice::renderBlock()
