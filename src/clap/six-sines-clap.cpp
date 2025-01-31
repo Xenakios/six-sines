@@ -146,12 +146,9 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     clap::helpers::EventList outEventList;
     clap_process_status process(const clap_process *process) noexcept override
     {
-        auto oscmsg = oscAdapter->fromOscThread.pop();
-        while (oscmsg.has_value())
+        if (oscAdapter)
         {
-            auto ev = (const clap_event_header *)&(*oscmsg);
-            handleEvent(ev);
-            oscmsg = oscAdapter->fromOscThread.pop();
+            oscAdapter->forEachInputEvent([this](const clap_event_header *ev) { handleEvent(ev); });
         }
 
         auto ev = process->in_events;
