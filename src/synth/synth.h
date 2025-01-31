@@ -187,6 +187,8 @@ struct Synth
                             synth.voices[i].voiceValues.rephaseOnRetrigger = (!upr && prt);
                             synth.voices[i].voiceValues.noteExpressionTuningInSemis = 0;
                             synth.voices[i].voiceValues.noteExpressionPanBipolar = 0;
+                            synth.voices[i].voiceValues.mpePressure = 0;
+                            synth.voices[i].voiceValues.mpeTimbre = 0;
                             synth.voices[i].attack();
 
                             synth.addToVoiceList(&synth.voices[i]);
