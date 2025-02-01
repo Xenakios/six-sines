@@ -220,7 +220,7 @@ struct Synth
                 break;
             case CLAP_NOTE_EXPRESSION_PRESSURE:
                 v->voiceValues.mpePressure = val;
-
+                break;
             case CLAP_NOTE_EXPRESSION_PAN:
                 v->voiceValues.noteExpressionPanBipolar = 2 * val - 1;
 
