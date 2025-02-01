@@ -33,7 +33,6 @@
 #include "ui/six-sines-editor.h"
 
 #include <clapwrapper/vst3.h>
-#include <mutex>
 
 #include "../../libs/sst-opensoundcontrol-clap/osc_adapter.h"
 
