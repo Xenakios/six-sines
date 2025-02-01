@@ -53,6 +53,16 @@ struct Param : pats::ParamBase
         WAVEFORM = 1 << 2,
     };
 
+    bool isTemposynced() const
+    {
+        if (tempoSyncPartner)
+            return tempoSyncPartner->value;
+
+        return false;
+    }
+
+    Param *tempoSyncPartner{nullptr};
+
     sst::basic_blocks::dsp::LinearLag<float, false> lag;
     Param *nextLag{nullptr}, *prevLag{nullptr};
 };
@@ -79,8 +89,8 @@ struct Patch : pats::PatchBase<Patch, Param>
           selfNodes(scpu::make_array_bind_first_index<SelfNode, numOps>()),
           matrixNodes(scpu::make_array_bind_first_index<MatrixNode, matrixSize>()),
           mixerNodes(scpu::make_array_bind_first_index<MixerNode, numOps>()),
-          macroNodes(scpu::make_array_bind_first_index<MacroNode, numMacros>()),
-          fineTuneMod("Fine Tune Mod", "Fine Tune", 0), mainPanMod("Main Pan Mod", "Main Pan", 1)
+          macroNodes(scpu::make_array_bind_first_index<MacroNode, numMacros>()), fineTuneMod(),
+          mainPanMod()
     {
         auto pushParams = [this](auto &from) { this->pushMultipleParams(from.params()); };
 
@@ -178,6 +188,7 @@ struct Patch : pats::PatchBase<Patch, Param>
                                  .withName(name + " Is Enveloped")
                                  .withGroupName(name))
         {
+            lfoRate.tempoSyncPartner = &tempoSync;
         }
 
         Param lfoRate, lfoDeform, lfoShape, lfoActive, tempoSync, lfoBipolar, lfoIsEnveloped;
@@ -1042,6 +1053,16 @@ struct Patch : pats::PatchBase<Patch, Param>
         }
     };
 
+    struct FineTuneNode : ModulationOnlyNode
+    {
+        FineTuneNode() : ModulationOnlyNode("Fine Tune Mod", "Fine Tune", 0) {}
+    };
+
+    struct MainPanNode : ModulationOnlyNode
+    {
+        MainPanNode() : ModulationOnlyNode("Main Pan Mod", "Main Pan", 1) {}
+    };
+
     struct OutputNode : public DAHDSRMixin, public ModulationMixin, public LFOMixin
     {
         static constexpr uint32_t idBase{500};
@@ -1307,7 +1328,8 @@ struct Patch : pats::PatchBase<Patch, Param>
     std::array<MacroNode, numMacros> macroNodes;
     OutputNode output;
 
-    ModulationOnlyNode fineTuneMod, mainPanMod;
+    FineTuneNode fineTuneMod;
+    MainPanNode mainPanMod;
 
     char name[256]{"Init"};
 
