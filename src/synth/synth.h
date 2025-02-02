@@ -77,6 +77,16 @@ struct Synth
     void dumpVoiceList();
     int voiceCount{0};
 
+    struct PortaContinuation
+    {
+        bool active{false};
+        bool updateEveryBlock{false};
+        float sourceKey{0.f};
+        float dKey{0.f};
+        float portaFrac{0.f};
+        float dPortaFrac{0.f};
+    } portaContinuation;
+
     struct VMResponder
     {
         Synth &synth;
@@ -189,6 +199,13 @@ struct Synth
                             synth.voices[i].voiceValues.noteExpressionPanBipolar = 0;
                             synth.voices[i].voiceValues.mpePressure = 0;
                             synth.voices[i].voiceValues.mpeTimbre = 0;
+
+                            if (synth.portaContinuation.active)
+                            {
+                                synth.voices[i].restartPortaTo(synth.portaContinuation.sourceKey,
+                                                               key, synth.patch.output.portaTime,
+                                                               synth.portaContinuation.portaFrac);
+                            }
                             synth.voices[i].attack();
 
                             synth.addToVoiceList(&synth.voices[i]);
@@ -200,6 +217,10 @@ struct Synth
                     }
                 }
             }
+            // If there is a porta continuation we dealt with it
+            if (ct > 0)
+                synth.portaContinuation.active = false;
+
             return made;
         }
         void releaseVoice(Voice *v, float rv)
