@@ -305,14 +305,10 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     {
         if (!sst::plugininfra::patch_support::inStreamToPatch(istream, engine->patch))
             return false;
-        if (oscAdapter)
-            oscAdapter->suspendOutput();
         engine->postLoad();
 
         _host.paramsRescan(CLAP_PARAM_RESCAN_VALUES);
         _host.paramsRequestFlush();
-        if (oscAdapter)
-            oscAdapter->resumeOutput();
         return true;
     }
 
