@@ -139,7 +139,6 @@ SixSinesEditor::SixSinesEditor(Synth::audioToUIQueue_t &atou, Synth::uiToAudioQu
     defaultsProvider = std::make_unique<defaultsProvder_t>(
         presetManager->userPath, "SixSinesUI", defaultName,
         [](auto e, auto b) { SXSNLOG("[ERROR]" << e << " " << b); });
-    SXSNLOG("Preset namager user path is " << presetManager->userPath.u8string())
     setSkinFromDefaults();
 
     {
@@ -190,7 +189,7 @@ void SixSinesEditor::idle()
     {
         if (aum->action == Synth::AudioToUIMsg::UPDATE_PARAM)
         {
-            setParamValueOnCopy(aum->paramId, aum->value, false);
+            setAndSendParamValue(aum->paramId, aum->value, false);
         }
         else if (aum->action == Synth::AudioToUIMsg::UPDATE_VU)
         {
@@ -220,6 +219,12 @@ void SixSinesEditor::idle()
                 clapHost->get_extension(clapHost, CLAP_EXT_PARAMS));
             p->rescan(clapHost, CLAP_PARAM_RESCAN_VALUES | CLAP_PARAM_RESCAN_TEXT);
             p->request_flush(clapHost);
+        }
+        else if (aum->action == Synth::AudioToUIMsg::SEND_SAMPLE_RATE)
+        {
+            engineSR = aum->value2;
+            hostSR = aum->value;
+            repaint();
         }
         else
         {
@@ -284,6 +289,7 @@ void SixSinesEditor::paint(juce::Graphics &g)
 #endif
 
     auto bi = os + " " + sst::plugininfra::VersionInformation::git_commit_hash;
+    bi += fmt::format(" @ {:.1f}k", hostSR / 1000.0);
     g.drawText(bi, getLocalBounds().reduced(3, 3), juce::Justification::bottomRight);
 
     g.drawText(sst::plugininfra::VersionInformation::git_implied_display_version,
@@ -757,14 +763,8 @@ void SixSinesEditor::sendEntirePatchToAudio(const std::string &s)
     flushOperator();
 }
 
-void SixSinesEditor::sendParamSetValue(uint32_t id, float value)
-{
-    patchCopy.paramMap.at(id)->value = value;
-    uiToAudio.push({Synth::UIToAudioMsg::Action::SET_PARAM, id, value});
-    flushOperator();
-}
-
-void SixSinesEditor::setParamValueOnCopy(uint32_t paramId, float value, bool notifyAudio)
+void SixSinesEditor::setAndSendParamValue(uint32_t paramId, float value, bool notifyAudio,
+                                          bool sendBeginEnd)
 {
     patchCopy.paramMap[paramId]->value = value;
 
@@ -780,7 +780,12 @@ void SixSinesEditor::setParamValueOnCopy(uint32_t paramId, float value, bool not
 
     if (notifyAudio)
     {
-        uiToAudio.push({Synth::UIToAudioMsg::SET_PARAM, paramId, value});
+        if (sendBeginEnd)
+            uiToAudio.push({Synth::UIToAudioMsg::Action::BEGIN_EDIT, paramId});
+        uiToAudio.push({Synth::UIToAudioMsg::Action::SET_PARAM, paramId, value});
+        if (sendBeginEnd)
+            uiToAudio.push({Synth::UIToAudioMsg::Action::END_EDIT, paramId});
+        flushOperator();
     }
 }
 
@@ -1015,13 +1020,6 @@ void SixSinesEditor::setZoomFactor(float zf)
         onZoomChanged(zoomFactor);
 }
 
-void SixSinesEditor::doSinglePanelHamburger()
-{
-    for (auto c : singlePanel->getChildren())
-    {
-        if (c->isVisible())
-            SXSNLOG("Would do " << typeid(*c).name());
-    }
-}
+void SixSinesEditor::doSinglePanelHamburger() { SXSNLOG("Coming soon"); }
 
 } // namespace baconpaul::six_sines::ui

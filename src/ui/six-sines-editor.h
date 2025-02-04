@@ -124,8 +124,13 @@ struct SixSinesEditor : jcmp::WindowPanel
     std::shared_ptr<SixSinesJuceLookAndFeel> lnf;
 
     void sendEntirePatchToAudio(const std::string &patchName);
-    void setParamValueOnCopy(uint32_t id, float value, bool notifyAudio);
-    void sendParamSetValue(uint32_t id, float value);
+    void setAndSendParamValue(uint32_t id, float value, bool notifyAudio = true,
+                              bool includeBeginEnd = true);
+    void setAndSendParamValue(const Param &p, float value, bool notifyAudio = true,
+                              bool includeBeginEnd = true)
+    {
+        setAndSendParamValue(p.meta.id, value, notifyAudio, includeBeginEnd);
+    }
 
     bool keyPressed(const juce::KeyPress &key) override;
 
@@ -145,6 +150,8 @@ struct SixSinesEditor : jcmp::WindowPanel
     std::unique_ptr<sst::jucegui::accessibility::FocusDebugger> focusDebugger;
 
     std::unordered_map<juce::Component *, std::function<void()>> panelSelectGestureFor;
+
+    float engineSR{0}, hostSR{0};
 
     const clap_host_t *clapHost{nullptr};
 };

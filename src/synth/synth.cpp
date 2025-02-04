@@ -105,8 +105,6 @@ void Synth::setSampleRate(double sampleRate)
         internalRate = 48000 * mul;
 
     engineSampleRate = internalRate;
-    if (engineSampleRate != oesr || hostSampleRate != ohsr)
-        SXSNLOG("Setting SampleRates: " << SXSNV(hostSampleRate) << SXSNV(engineSampleRate));
 
     monoValues.sr.setSampleRate(internalRate);
 
@@ -159,6 +157,9 @@ void Synth::setSampleRate(double sampleRate)
         p->prevLag = nullptr;
     }
     lagHead = nullptr;
+
+    audioToUi.push(
+        {AudioToUIMsg::SEND_SAMPLE_RATE, 0, (float)hostSampleRate, (float)engineSampleRate});
 }
 
 template <bool multiOut> void Synth::processInternal(const clap_output_events_t *outq)
@@ -528,6 +529,10 @@ void Synth::processUIQueue(const clap_output_events_t *outq)
             auto dest = patch.paramMap.at(uiM->paramId);
             if (notify)
             {
+                if (beginEndParamGestureCount == 0)
+                {
+                    SXSNLOG("Non-begin/end bound param edit for '" << dest->meta.name << "'");
+                }
                 if (dest->meta.type == md_t::FLOAT)
                     lagHandler.setNewDestination(&(dest->value), uiM->value);
                 else
@@ -580,6 +585,14 @@ void Synth::processUIQueue(const clap_output_events_t *outq)
         case UIToAudioMsg::BEGIN_EDIT:
         case UIToAudioMsg::END_EDIT:
         {
+            if (uiM->action == UIToAudioMsg::BEGIN_EDIT)
+            {
+                beginEndParamGestureCount++;
+            }
+            else
+            {
+                beginEndParamGestureCount--;
+            }
             clap_event_param_gesture_t p;
             p.header.size = sizeof(clap_event_param_gesture_t);
             p.header.time = 0;
