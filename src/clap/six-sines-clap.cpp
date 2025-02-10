@@ -17,9 +17,11 @@
 #include "clap/helpers/event-list.hh"
 #include "configuration.h"
 #include <clap/clap.h>
+#include <chrono>
 
 #include <clap/helpers/plugin.hh>
 #include "synth/synth.h"
+#include "presets/preset-manager.h"
 
 #include <clap/helpers/plugin.hxx>
 #include <clap/helpers/host-proxy.hxx>
@@ -298,17 +300,41 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     bool implementsState() const noexcept override { return true; }
     bool stateSave(const clap_ostream *ostream) noexcept override
     {
-        engine->prepForStream();
-        return sst::plugininfra::patch_support::patchToOutStream(engine->patch, ostream);
+        engine->mainToAudio.push({Synth::MainToAudioMsg::SEND_PREP_FOR_STREAM});
+        if (_host.canUseParams())
+            _host.paramsRequestFlush();
+
+        // best efforts on that message for now
+        static constexpr int maxIts{5};
+        int i{0};
+        for (i = 0; i < maxIts && !engine->readyForStream; ++i)
+        {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(4ms);
+        }
+        if (i == maxIts && !engine->readyForStream)
+        {
+            // sigh. something is wonky
+            engine->prepForStream();
+        }
+
+        auto res = sst::plugininfra::patch_support::patchToOutStream(engine->patch, ostream);
+        engine->readyForStream = false;
+        return res;
     }
     bool stateLoad(const clap_istream *istream) noexcept override
     {
-        if (!sst::plugininfra::patch_support::inStreamToPatch(istream, engine->patch))
+        Patch patchCopy;
+        if (!sst::plugininfra::patch_support::inStreamToPatch(istream, patchCopy))
             return false;
-        engine->postLoad();
 
-        _host.paramsRescan(CLAP_PARAM_RESCAN_VALUES);
-        _host.paramsRequestFlush();
+        presets::PresetManager::sendEntirePatchToAudio(patchCopy, engine->mainToAudio,
+                                                       patchCopy.name, _host.host());
+        if (_host.canUseParams())
+        {
+            _host.paramsRescan(CLAP_PARAM_RESCAN_VALUES);
+            _host.paramsRequestFlush();
+        }
         return true;
     }
 
@@ -347,6 +373,41 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
         engine->processUIQueue(out);
     }
 
+    bool implementsPresetLoad() const noexcept override { return true; }
+    bool presetLoadFromLocation(uint32_t location_kind, const char *location,
+                                const char *load_key) noexcept override
+    {
+        if (location_kind ==
+            clap_preset_discovery_location_kind::CLAP_PRESET_DISCOVERY_LOCATION_FILE)
+        {
+            try
+            {
+                auto p = fs::path(fs::u8path(location));
+                if (p.extension() == "sxsnp")
+                {
+                    std::ifstream t(p);
+                    if (!t.is_open())
+                        return false;
+                    std::stringstream buffer;
+                    buffer << t.rdbuf();
+
+                    Patch patchCopy;
+                    patchCopy.fromState(buffer.str());
+
+                    auto dn = p.filename().replace_extension("").u8string();
+                    presets::PresetManager::sendEntirePatchToAudio(patchCopy, engine->mainToAudio,
+                                                                   patchCopy.name, _host.host());
+                    return true;
+                }
+            }
+            catch (const fs::filesystem_error &e)
+            {
+                SXSNLOG("File System Error " << e.what() << " with " << location);
+            }
+        }
+        return false;
+    }
+
   public:
     bool implementsGui() const noexcept override { return clapJuceShim != nullptr; }
     std::unique_ptr<sst::clap_juce_shim::ClapJuceShim> clapJuceShim;
@@ -355,8 +416,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     std::unique_ptr<juce::Component> createEditor() override
     {
         auto res = std::make_unique<baconpaul::six_sines::ui::SixSinesEditor>(
-            engine->audioToUi, engine->uiToAudio, [this]() { _host.paramsRequestFlush(); });
-        res->clapHost = _host.host();
+            engine->audioToUi, engine->mainToAudio, _host.host());
 
         res->onZoomChanged = [this](auto f)
         {
@@ -373,6 +433,8 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
             e->setZoomFactor(e->zoomFactor);
             return true;
         };
+        res->sneakyStartupGrabFrom(engine->patch);
+        res->repaint();
 
         return res;
     }

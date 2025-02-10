@@ -205,15 +205,15 @@ template <typename Comp, typename Patch> struct ModulationComponents
         p.addSeparator();
         std::string currCat{};
         auto s = juce::PopupMenu();
-        auto genSet = [&](auto si)
+        auto genSet = [c = asComp(), index](int si)
         {
-            return [si, w = juce::Component::SafePointer(asComp()), index]()
+            return [sCopy = si, w = juce::Component::SafePointer(c), index]()
             {
                 if (!w)
                     return;
                 if (!w->patchPtr)
                     return;
-                w->editor.setAndSendParamValue(w->patchPtr->modsource[index], si);
+                w->editor.setAndSendParamValue(w->patchPtr->modsource[index], sCopy);
                 w->resetSourceLabel(index);
             };
         };

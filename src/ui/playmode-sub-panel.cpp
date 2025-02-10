@@ -180,7 +180,7 @@ PlayModeSubPanel::PlayModeSubPanel(SixSinesEditor &e) : HasEditor(e)
     panicButton = std::make_unique<jcmp::TextPushButton>();
     panicButton->setLabel("Sound Off");
     panicButton->setOnCallback(
-        [this]() { editor.uiToAudio.push({Synth::UIToAudioMsg::PANIC_STOP_VOICES}); });
+        [this]() { editor.mainToAudio.push({Synth::MainToAudioMsg::PANIC_STOP_VOICES}); });
     addAndMakeVisible(*panicButton);
     addAndMakeVisible(*panicTitle);
 
@@ -330,10 +330,7 @@ void PlayModeSubPanel::setPortaContinuationLabel()
         portaContinuationButton->setLabel("OnVoice");
         break;
     case 1:
-        portaContinuationButton->setLabel("FreeRun");
-        break;
-    case 2:
-        portaContinuationButton->setLabel("GateRun");
+        portaContinuationButton->setLabel("FromLast");
         break;
     }
 }
@@ -356,9 +353,8 @@ void PlayModeSubPanel::showPortaContinuationMenu()
     p.addSectionHeader("Portamento Continuation");
     p.addSectionHeader("Experimental; May change before 1.1");
     p.addSeparator();
-    p.addItem("Restart Porta on New Voice", true, tmv == 0, genSet(0));
-    p.addItem("Continue Porta While Released", true, tmv == 1, genSet(1));
-    p.addItem("Suspend Porta While Released", true, tmv == 2, genSet(2));
+    p.addItem("Reset Porta on New Voice", true, tmv == 0, genSet(0));
+    p.addItem("Start Porta from Last Release", true, tmv == 1, genSet(1));
 
     p.showMenuAsync(juce::PopupMenu::Options().withParentComponent(&this->editor),
                     makeMenuAccessibleButtonCB(portaContinuationButton.get()));

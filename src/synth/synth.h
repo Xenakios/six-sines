@@ -38,11 +38,10 @@
 #include "synth/patch.h"
 #include "mono_values.h"
 #include "mod_matrix.h"
+#include "sst/basic-blocks/dsp/LagCollection.h"
 
 namespace baconpaul::six_sines
 {
-struct PresetManager;
-
 struct Synth
 {
     float output alignas(16)[2 * (1 + numOps)][blockSize];
@@ -63,6 +62,7 @@ struct Synth
 
     Patch patch;
     MonoValues monoValues;
+    sst::basic_blocks::dsp::LagCollection<130> midiCCLagCollection; // 130 for 128 + pitch + chanat
 
     struct VMConfig
     {
@@ -272,15 +272,18 @@ struct Synth
 
         void setMIDIPitchBend(int16_t c, int16_t v)
         {
-            synth.monoValues.pitchBend = (v - 8192) * 1.0 / 8192;
+            auto val = (v - 8192) * 1.0 / 8192;
+            synth.midiCCLagCollection.setTarget(129, val, &synth.monoValues.pitchBend);
         }
         void setMIDI1CC(int16_t ch, int16_t cc, int8_t v)
         {
             synth.monoValues.midiCC[cc] = v;
-            synth.monoValues.midiCCFloat[cc] = v / 127.0;
+            // synth.monoValues.midiCCFloat[cc] = v / 127.0;
+            synth.midiCCLagCollection.setTarget(cc, v / 127.0, &synth.monoValues.midiCCFloat[cc]);
         }
         void setMIDIChannelPressure(int16_t ch, int16_t v)
         {
+            synth.midiCCLagCollection.setTarget(128, v / 127.0, &synth.monoValues.channelAT);
             synth.monoValues.channelAT = v / 127.0;
         }
     };
@@ -324,9 +327,9 @@ struct Synth
         } action;
         uint32_t paramId{0};
         float value{0}, value2{0};
-        const char *hackPointer{0};
+        const char *patchNamePointer{0};
     };
-    struct UIToAudioMsg
+    struct MainToAudioMsg
     {
         enum Action : uint32_t
         {
@@ -339,22 +342,25 @@ struct Synth
             START_AUDIO,
             SEND_PATCH_NAME,
             SEND_PATCH_IS_CLEAN,
+            SEND_POST_LOAD,
             SEND_REQUEST_RESCAN,
             EDITOR_ATTACH_DETATCH, // paramid is true for attach and false for detach
+            SEND_PREP_FOR_STREAM,
             PANIC_STOP_VOICES
         } action;
         uint32_t paramId{0};
         float value{0};
-        const char *hackPointer{nullptr};
+        const char *uiManagedPointer{nullptr};
     };
     using audioToUIQueue_t = sst::cpputils::SimpleRingBuffer<AudioToUIMsg, 1024 * 16>;
-    using uiToAudioQueue_T = sst::cpputils::SimpleRingBuffer<UIToAudioMsg, 1024 * 64>;
+    using mainToAudioQueue_T = sst::cpputils::SimpleRingBuffer<MainToAudioMsg, 1024 * 64>;
     audioToUIQueue_t audioToUi;
-    uiToAudioQueue_T uiToAudio;
+    mainToAudioQueue_T mainToAudio;
     std::atomic<bool> doFullRefresh{false};
     bool isEditorAttached{false};
     sst::basic_blocks::dsp::UIComponentLagHandler lagHandler;
 
+    std::atomic<bool> readyForStream{false};
     void prepForStream()
     {
         if (lagHandler.active)
@@ -375,6 +381,9 @@ struct Synth
             cc->nextLag = nullptr;
             cc->prevLag = nullptr;
         }
+        patch.dirty = false;
+        doFullRefresh = true;
+        readyForStream = true;
     }
 
     void pushFullUIRefresh();

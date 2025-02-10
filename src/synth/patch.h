@@ -186,12 +186,20 @@ struct Patch : pats::PatchBase<Patch, Param>
                                  .withDefault(false)
                                  .withID(id0 + 7)
                                  .withName(name + " Is Enveloped")
-                                 .withGroupName(name))
+                                 .withGroupName(name)),
+              lfoStartPhase(floatMd()
+                                .withDefault(0)
+                                .withID(id0 + 8)
+                                .withName(name + " Start Phase")
+                                .withGroupName(name)
+                                .withRange(0., 1.)
+                                .withLinearScaleFormatting(""))
         {
             lfoRate.tempoSyncPartner = &tempoSync;
         }
 
-        Param lfoRate, lfoDeform, lfoShape, lfoActive, tempoSync, lfoBipolar, lfoIsEnveloped;
+        Param lfoRate, lfoDeform, lfoShape, lfoActive, tempoSync, lfoBipolar, lfoIsEnveloped,
+            lfoStartPhase;
 
         void appendLFOParams(std::vector<Param *> &res)
         {
@@ -201,12 +209,14 @@ struct Patch : pats::PatchBase<Patch, Param>
             res.push_back(&tempoSync);
             res.push_back(&lfoBipolar);
             res.push_back(&lfoIsEnveloped);
+            res.push_back(&lfoStartPhase);
         }
 
         enum LFOTargets
         {
             LFO_RATE = 50,
-            LFO_DEFORM = 51
+            LFO_DEFORM = 51,
+            LFO_STARTPHASE = 52
         };
 
         void appendLFOTargetName(std::vector<std::pair<int32_t, std::string>> &res)
@@ -214,6 +224,7 @@ struct Patch : pats::PatchBase<Patch, Param>
             res.emplace_back(-1, "");
             res.emplace_back(LFOTargets::LFO_RATE, "LFO Rate");
             res.emplace_back(LFOTargets::LFO_DEFORM, "LFO Deform");
+            res.emplace_back(LFOTargets::LFO_STARTPHASE, "LFO Phase");
         }
     };
 
@@ -404,6 +415,7 @@ struct Patch : pats::PatchBase<Patch, Param>
             SKIP = -1,
             NONE = 0,
             DIRECT = 10,
+            DIRECT_FINE = 11,
             STARTING_PHASE = 15,
             ENV_DEPTH_ATTEN = 20,
             LFO_DEPTH_ATTEN = 30,
@@ -413,9 +425,10 @@ struct Patch : pats::PatchBase<Patch, Param>
             {TargetID::NONE, "Off"},
             {TargetID::SKIP, ""},
             {TargetID::DIRECT, "Ratio"},
+            {TargetID::DIRECT_FINE, "Ratio (Fine)"},
             {TargetID::STARTING_PHASE, "Phase"},
-            {TargetID::ENV_DEPTH_ATTEN, "Env Sens"},
-            {TargetID::LFO_DEPTH_ATTEN, "LFO Sens"},
+            {TargetID::ENV_DEPTH_ATTEN, "Env Atten"},
+            {TargetID::LFO_DEPTH_ATTEN, "LFO Atten"},
 
         };
 
@@ -471,30 +484,36 @@ struct Patch : pats::PatchBase<Patch, Param>
                                  .withDecimalPlaces(4)
                                  .withDefault(0.f)
                                  .withID(id(11, idx))),
-              waveForm(
-                  intMd()
-                      .withName(name(idx) + " Waveform")
-                      .withGroupName(name(idx))
-                      .withID(id(5, idx))
-                      .withRange(0, SinTable::WaveForm::NUM_WAVEFORMS - 1)
-                      .withDefault(0)
-                      .withUnorderedMapFormatting({{SinTable::WaveForm::SIN, "Sin"},
-                                                   {SinTable::WaveForm::SIN_FIFTH, "Sin^5 x"},
-                                                   {SinTable::WaveForm::SQUARISH, "Squarish"},
-                                                   {SinTable::WaveForm::SAWISH, "Sawish"},
-                                                   {SinTable::WaveForm::TRIANGLE, "Triangle"},
-                                                   {SinTable::WaveForm::SIN_OF_CUBED, "Sin(x^3)"},
-                                                   {SinTable::WaveForm::TX2, "TX 2"},
-                                                   {SinTable::WaveForm::TX3, "TX 3"},
-                                                   {SinTable::WaveForm::TX4, "TX 4"},
-                                                   {SinTable::WaveForm::TX5, "TX 5"},
-                                                   {SinTable::WaveForm::TX6, "TX 6"},
-                                                   {SinTable::WaveForm::TX7, "TX 7"},
-                                                   {SinTable::WaveForm::TX8, "TX 8"},
-                                                   {SinTable::WaveForm::SPIKY_TX2, "Spiky TX 2"},
-                                                   {SinTable::WaveForm::SPIKY_TX4, "Spiky TX 4"},
-                                                   {SinTable::WaveForm::SPIKY_TX6, "Spiky TX 6"},
-                                                   {SinTable::WaveForm::SPIKY_TX8, "Spiky TX 8"}})),
+              waveForm(intMd()
+                           .withName(name(idx) + " Waveform")
+                           .withGroupName(name(idx))
+                           .withID(id(5, idx))
+                           .withRange(0, SinTable::WaveForm::NUM_WAVEFORMS - 1)
+                           .withDefault(0)
+                           .withUnorderedMapFormatting({
+                               {SinTable::WaveForm::SIN, "Sin"},
+                               {SinTable::WaveForm::SIN_FIFTH, "Sin^5 x"},
+                               {SinTable::WaveForm::SQUARISH, "Squarish"},
+                               {SinTable::WaveForm::SAWISH, "Sawish"},
+                               {SinTable::WaveForm::TRIANGLE, "Triangle"},
+                               {SinTable::WaveForm::SIN_OF_CUBED, "Sin(x^3)"},
+                               {SinTable::WaveForm::TX2, "TX 2"},
+                               {SinTable::WaveForm::TX3, "TX 3"},
+                               {SinTable::WaveForm::TX4, "TX 4"},
+                               {SinTable::WaveForm::TX5, "TX 5"},
+                               {SinTable::WaveForm::TX6, "TX 6"},
+                               {SinTable::WaveForm::TX7, "TX 7"},
+                               {SinTable::WaveForm::TX8, "TX 8"},
+                               {SinTable::WaveForm::SPIKY_TX2, "Spiky TX 2"},
+                               {SinTable::WaveForm::SPIKY_TX4, "Spiky TX 4"},
+                               {SinTable::WaveForm::SPIKY_TX6, "Spiky TX 6"},
+                               {SinTable::WaveForm::SPIKY_TX8, "Spiky TX 8"},
+                               {SinTable::WaveForm::HANN_WINDOW, "Hann"},
+                               {SinTable::WaveForm::BLACKMAN_HARRIS_WINDOW, "Blackman Harris"},
+                               {SinTable::WaveForm::HALF_BLACKMAN_HARRIS_WINDOW,
+                                std::string() + u8"\U000000BD" + " Blackman Harris"},
+                               {SinTable::WaveForm::TUKEY_WINDOW, "Tukey"},
+                           })),
 
               keyTrack(boolMd()
                            .withName(name(idx) + " Keytrack")
@@ -1093,7 +1112,7 @@ struct Patch : pats::PatchBase<Patch, Param>
                              .withGroupName(name())
                              .withRange(-24, 24)
                              .withLinearScaleFormatting("semitones")
-                             .withID(id(0, 402))),
+                             .withID(id(402, 0))),
               lfoCoarseDepth(floatMd()
                                  .asPercentBipolar()
                                  .withName(name() + " Coarse LFO Depth")
@@ -1222,11 +1241,11 @@ struct Patch : pats::PatchBase<Patch, Param>
               portaContinuation(intMd()
                                     .withID(id(43))
                                     .withName(name() + " Porta Continuation")
-                                    .withRange(0, 2)
+                                    .withRange(0, 1)
                                     .withDefault(0)
                                     .withGroupName(name())
                                     .withUnorderedMapFormatting(
-                                        {{0, "OnVoice"}, {1, "FreeRun"}, {2, "GateRun"}})),
+                                        {{0, "Reset On Voice"}, {1, "Restart From Last"}})),
 
               pianoModeActive(md_t()
                                   .asBool()
