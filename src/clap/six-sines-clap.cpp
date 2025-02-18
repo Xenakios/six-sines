@@ -28,6 +28,7 @@
 
 #include <memory>
 #include "sst/plugininfra/patch-support/patch_base_clap_adapter.h"
+#include "sst/plugininfra/cpufeatures.h"
 
 #include "sst/voicemanager/midi1_to_voicemanager.h"
 #include "sst/clap_juce_shim/clap_juce_shim.h"
@@ -147,10 +148,12 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     clap::helpers::EventList outEventList;
     clap_process_status process(const clap_process *process) noexcept override
     {
+        auto fpuguard = sst::plugininfra::cpufeatures::FPUStateGuard();
         if (oscAdapter)
         {
             oscAdapter->forEachInputEvent([this](const clap_event_header *ev) { handleEvent(ev); });
         }
+        
 
         auto ev = process->in_events;
         auto outq = outEventList.clapOutputEvents();
