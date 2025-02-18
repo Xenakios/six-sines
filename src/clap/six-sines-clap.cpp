@@ -37,7 +37,7 @@
 
 #include <clapwrapper/vst3.h>
 
-#include "../../libs/sst-opensoundcontrol-clap/osc_adapter.h"
+#include "sst/osc-adapter/osc_adapter.h"
 
 namespace baconpaul::six_sines
 {
