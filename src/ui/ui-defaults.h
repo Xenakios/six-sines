@@ -25,6 +25,8 @@ enum Defaults
 {
     useLightSkin,
     zoomLevel,
+    useSoftwareRenderer, // only used on windows
+    flipSourceAndMatrix,
     numDefaults
 };
 
@@ -36,6 +38,10 @@ inline std::string defaultName(Defaults d)
         return "useLightSkin";
     case zoomLevel:
         return "zoomLevel";
+    case useSoftwareRenderer:
+        return "useSoftwareRenderer";
+    case flipSourceAndMatrix:
+        return "flipSourceAndMatrix";
     case numDefaults:
     {
         SXSNLOG("Software Error - defaults found");

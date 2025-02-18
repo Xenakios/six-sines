@@ -35,7 +35,6 @@
 #include "source-panel.h"
 #include "source-sub-panel.h"
 #include "ui-constants.h"
-#include "juce-lnf.h"
 #include "presets/preset-manager.h"
 #include "macro-panel.h"
 #include "clipboard.h"
@@ -50,9 +49,6 @@ struct IdleTimer : juce::Timer
     IdleTimer(SixSinesEditor &e) : editor(e) {}
     void timerCallback() override { editor.idle(); }
 };
-
-static std::weak_ptr<SixSinesJuceLookAndFeel> sixSinesLookAndFeelWeakPointer;
-static std::mutex sixSinesLookAndFeelSetupMutex;
 
 namespace jstl = sst::jucegui::style;
 using sheet_t = jstl::StyleSheet;
@@ -154,21 +150,8 @@ SixSinesEditor::SixSinesEditor(Synth::audioToUIQueue_t &atou, Synth::mainToAudio
         [](auto e, auto b) { SXSNLOG("[ERROR]" << e << " " << b); });
     setSkinFromDefaults();
 
-    {
-        std::lock_guard<std::mutex> grd(sixSinesLookAndFeelSetupMutex);
-        if (auto sp = sixSinesLookAndFeelWeakPointer.lock())
-        {
-            lnf = sp;
-        }
-        else
-        {
-            lnf = std::make_shared<SixSinesJuceLookAndFeel>(
-                style()->getFont(jcmp::Label::Styles::styleClass, jcmp::Label::Styles::labelfont));
-            sixSinesLookAndFeelWeakPointer = lnf;
-
-            juce::LookAndFeel::setDefaultLookAndFeel(lnf.get());
-        }
-    }
+    lnf = std::make_unique<sst::jucegui::style::LookAndFeelManager>(this);
+    lnf->setStyle(style());
 
     vuMeter = std::make_unique<jcmp::VUMeter>(jcmp::VUMeter::HORIZONTAL);
     addAndMakeVisible(*vuMeter);
@@ -192,6 +175,7 @@ SixSinesEditor::~SixSinesEditor()
 {
     mainToAudio.push({Synth::MainToAudioMsg::EDITOR_ATTACH_DETATCH, false});
     idleTimer->stopTimer();
+    setLookAndFeel(nullptr);
 }
 
 void SixSinesEditor::idle()
@@ -368,6 +352,19 @@ void SixSinesEditor::resized()
     auto editRect =
         juce::Rectangle<int>(panelArea.getX(), panelArea.getY() + sourceHeight + matrixHeight,
                              matrixWidth + mainWidth, editHeight);
+
+    bool flipSourceAndMatrix =
+        defaultsProvider->getUserDefaultValue(Defaults::flipSourceAndMatrix, false);
+    if (flipSourceAndMatrix)
+    {
+        auto sy = sourceRect.getY();
+        auto mb = matrixRect.getBottom() - sourceRect.getHeight();
+        matrixRect.setY(sy);
+        macroRect.setY(sy);
+        mixerRect.setY(sy);
+        sourceRect.setY(mb);
+        mainRect.setY(mb);
+    }
 
     sourcePanel->setBounds(sourceRect.reduced(panelMargin));
     matrixPanel->setBounds(matrixRect.reduced(panelMargin));
@@ -690,12 +687,51 @@ void SixSinesEditor::showPresetPopup()
                     w->setSkinFromDefaults();
                 });
     uim.addSeparator();
+    auto fsm = defaultsProvider->getUserDefaultValue(Defaults::flipSourceAndMatrix, false);
+    uim.addItem("Sources Above Matrix", true, !fsm,
+                [w = juce::Component::SafePointer(this)]()
+                {
+                    if (!w)
+                        return;
+                    w->defaultsProvider->updateUserDefaultValue(Defaults::flipSourceAndMatrix,
+                                                                false);
+                    w->resized();
+                    w->repaint();
+                });
+    uim.addItem("Matrix Above Sources", true, fsm,
+                [w = juce::Component::SafePointer(this)]()
+                {
+                    if (!w)
+                        return;
+                    w->defaultsProvider->updateUserDefaultValue(Defaults::flipSourceAndMatrix,
+                                                                true);
+                    w->resized();
+                    w->repaint();
+                });
+    uim.addSeparator();
     uim.addItem("Activate Debug Log", true, debugLevel > 0,
                 [w = juce::Component::SafePointer(this)]()
                 {
                     if (w)
                         w->toggleDebug();
                 });
+
+#if JUCE_WINDOWS
+    auto swr = defaultsProvider->getUserDefaultValue(Defaults::useSoftwareRenderer, false);
+
+    uim.addItem(
+        "Use Software Renderer", true, swr,
+        [w = juce::Component::SafePointer(this), swr]()
+        {
+            if (!w)
+                return;
+            w->defaultsProvider->updateUserDefaultValue(Defaults::useSoftwareRenderer, !swr);
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::WarningIcon, "Software Renderer Change",
+                "A software renderer change is only active once you restart/reload the plugin.");
+        });
+#endif
+
     p.addSubMenu("User Interface", uim);
 
     p.addSeparator();
@@ -995,6 +1031,19 @@ void SixSinesEditor::parentHierarchyChanged()
         presetButton->setWantsKeyboardFocus(true);
         presetButton->grabKeyboardFocus();
     }
+
+#if JUCE_WINDOWS
+    auto swr = defaultsProvider->getUserDefaultValue(Defaults::useSoftwareRenderer, false);
+
+    if (swr)
+    {
+        if (auto peer = getPeer())
+        {
+            SXSNLOG("Enabling software rendering engine");
+            peer->setCurrentRenderingEngine(0); // 0 for software mode, 1 for Direct2D mode
+        }
+    }
+#endif
 }
 
 void SixSinesEditor::setSkinFromDefaults()
@@ -1199,6 +1248,13 @@ bool SixSinesEditor::toggleDebug()
     SXSNLOG("Started debug session");
     SXSNLOG("If you are on windows and you close this window it may end your entire session");
     return debugLevel > 0;
+}
+
+void SixSinesEditor::onStyleChanged()
+{
+    jcmp::WindowPanel::onStyleChanged();
+    if (lnf)
+        lnf->setStyle(style());
 }
 
 } // namespace baconpaul::six_sines::ui
