@@ -14,6 +14,8 @@
  */
 
 #include "playmode-sub-panel.h"
+#include "sst/jucegui/components/MenuButton.h"
+#include "sst/jucegui/components/TypeInOverlay.h"
 #include <sst/jucegui/layouts/ListLayout.h>
 
 namespace baconpaul::six_sines::ui
@@ -192,6 +194,14 @@ PlayModeSubPanel::PlayModeSubPanel(SixSinesEditor &e) : HasEditor(e)
     srStratLab->setText("Oversampling");
     addAndMakeVisible(*srStratLab);
 
+    oscontrolLab = std::make_unique<jcmp::RuledLabel>();
+    oscontrolLab->setText("OpenSoundControl");
+    addAndMakeVisible(*oscontrolLab);
+    oscInstanceSelector = std::make_unique<jcmp::MenuButton>();
+    oscInstanceSelector->setLabelAndTitle("OSC Input Off", "OSC Input Port");
+    oscInstanceSelector->setOnCallback([this]() { showOscInputMenu(); });
+    addAndMakeVisible(*oscInstanceSelector);
+
     setEnabledState();
 }
 
@@ -253,6 +263,11 @@ void PlayModeSubPanel::resized()
     rsl.add(jlo::Component(*srStrat).withHeight(uicLabelHeight));
     rsl.add(jlo::Component(*rsEng).withHeight(uicLabelHeight));
     lo.add(rsl);
+
+    auto oscl = jlo::VList().withWidth(2 * skinny).withAutoGap(uicMargin);
+    oscl.add(titleLabelGaplessLayout(oscontrolLab));
+    oscl.add(jlo::Component(*oscInstanceSelector).withHeight(uicLabelHeight));
+    lo.add(oscl);
 
     lo.doLayout();
 }
@@ -385,6 +400,28 @@ void PlayModeSubPanel::setEnabledState()
     mpeRangeL->setEnabled(me);
 
     repaint();
+}
+
+void PlayModeSubPanel::showOscInputMenu()
+{
+    auto p = juce::PopupMenu();
+    p.addSectionHeader("OSC Input Port");
+    p.addSeparator();
+    auto currentPort = 0;
+    for (auto ipo : {0, 7000, 7100, 7200, 7300, 7400, 7500})
+    {
+        std::string txt = "OSC Input Off";
+        if (ipo > 0)
+            txt = "OSC Input Port " + std::to_string(ipo);
+        p.addItem(txt, true, ipo == currentPort,
+                  [w = juce::Component::SafePointer(this), ipo, txt]()
+                  {
+                      if (!w)
+                          return;
+                      w->oscInstanceSelector->setLabelAndTitle(txt, txt);
+                  });
+    }
+    p.showMenuAsync(juce::PopupMenu::Options().withParentComponent(&editor));
 }
 
 void PlayModeSubPanel::showPolyLimitMenu()

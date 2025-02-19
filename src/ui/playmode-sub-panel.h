@@ -21,6 +21,8 @@
 #include "dahdsr-components.h"
 #include "lfo-components.h"
 #include "modulation-components.h"
+#include "sst/jucegui/components/RuledLabel.h"
+#include "sst/jucegui/components/TypeInOverlay.h"
 
 namespace baconpaul::six_sines::ui
 {
@@ -90,10 +92,14 @@ struct PlayModeSubPanel : juce::Component, HasEditor
     std::unique_ptr<PatchDiscrete> srStratD;
     std::unique_ptr<jcmp::JogUpDownButton> rsEng;
     std::unique_ptr<PatchDiscrete> rsEngD;
+    
+    std::unique_ptr<jcmp::RuledLabel> oscontrolLab;
+    std::unique_ptr<jcmp::MenuButton> oscInstanceSelector;
 
     void showPolyLimitMenu();
     int getPolyLimit();
     void setPolyLimit(int pl);
+    void showOscInputMenu();
 };
 } // namespace baconpaul::six_sines::ui
 #endif // MIXER_SUB_PANE_H
