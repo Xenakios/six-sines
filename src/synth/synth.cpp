@@ -663,6 +663,15 @@ void Synth::processUIQueue(const clap_output_events_t *outq)
             voiceManager->allSoundsOff();
         }
         break;
+        
+        case MainToAudioMsg::SET_OSC_INPUT_PORT:
+        {
+            if (oscAdapter)
+            {
+                oscAdapter->startWith(uint32_t(uiM->value), oscAdapter->activeOutputPort);
+            }
+        }
+        break;
         }
         uiM = mainToAudio.pop();
     }

@@ -16,6 +16,7 @@
 #include "playmode-sub-panel.h"
 #include "sst/jucegui/components/MenuButton.h"
 #include "sst/jucegui/components/TypeInOverlay.h"
+#include "synth/synth.h"
 #include <sst/jucegui/layouts/ListLayout.h>
 
 namespace baconpaul::six_sines::ui
@@ -419,6 +420,10 @@ void PlayModeSubPanel::showOscInputMenu()
                       if (!w)
                           return;
                       w->oscInstanceSelector->setLabelAndTitle(txt, txt);
+                      Synth::MainToAudioMsg msg;
+                      msg.action = Synth::MainToAudioMsg::Action::SET_OSC_INPUT_PORT;
+                      msg.value = ipo;
+                      w->editor.mainToAudio.push(msg);
                   });
     }
     p.showMenuAsync(juce::PopupMenu::Options().withParentComponent(&editor));

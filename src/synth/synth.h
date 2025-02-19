@@ -39,7 +39,7 @@
 #include "mono_values.h"
 #include "mod_matrix.h"
 #include "sst/basic-blocks/dsp/LagCollection.h"
-
+#include "sst/osc-adapter/osc_adapter.h"
 namespace baconpaul::six_sines
 {
 struct Synth
@@ -347,7 +347,8 @@ struct Synth
             SEND_REQUEST_RESCAN,
             EDITOR_ATTACH_DETATCH, // paramid is true for attach and false for detach
             SEND_PREP_FOR_STREAM,
-            PANIC_STOP_VOICES
+            PANIC_STOP_VOICES,
+            SET_OSC_INPUT_PORT
         } action;
         uint32_t paramId{0};
         float value{0};
@@ -408,6 +409,7 @@ struct Synth
     int32_t lastVuUpdate{updateVuEvery};
 
     const clap_host_t *clapHost{nullptr};
+    sst::osc_adapter::OSCAdapter* oscAdapter{nullptr};
 };
 } // namespace baconpaul::six_sines
 #endif // SYNTH_H

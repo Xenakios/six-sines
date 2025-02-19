@@ -79,6 +79,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
         oscAdapter =
             std::make_unique<sst::osc_adapter::OSCAdapter>(clapPlugin(), this->_host.host());
         oscAdapter->startWith(7001, 7002);
+        engine->oscAdapter = oscAdapter.get();
         return true;
     }
     void deactivate() noexcept override
@@ -86,6 +87,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
         if (oscAdapter)
         {
             oscAdapter->stop();
+            engine->oscAdapter = nullptr;
             oscAdapter = nullptr;
         }
     }
