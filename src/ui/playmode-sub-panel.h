@@ -94,12 +94,13 @@ struct PlayModeSubPanel : juce::Component, HasEditor
     std::unique_ptr<PatchDiscrete> rsEngD;
     
     std::unique_ptr<jcmp::RuledLabel> oscontrolLab;
-    std::unique_ptr<jcmp::MenuButton> oscInstanceSelector;
+    std::unique_ptr<jcmp::MenuButton> oscInputSelector;
+    std::unique_ptr<jcmp::MenuButton> oscOutputSelector;
 
     void showPolyLimitMenu();
     int getPolyLimit();
     void setPolyLimit(int pl);
-    void showOscInputMenu();
+    void showOscMenu(bool isInput);
 };
 } // namespace baconpaul::six_sines::ui
 #endif // MIXER_SUB_PANE_H

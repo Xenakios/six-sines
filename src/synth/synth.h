@@ -348,7 +348,8 @@ struct Synth
             EDITOR_ATTACH_DETATCH, // paramid is true for attach and false for detach
             SEND_PREP_FOR_STREAM,
             PANIC_STOP_VOICES,
-            SET_OSC_INPUT_PORT
+            SET_OSC_INPUT_PORT,
+            SET_OSC_OUTPUT_PORT
         } action;
         uint32_t paramId{0};
         float value{0};

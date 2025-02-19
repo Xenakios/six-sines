@@ -198,10 +198,15 @@ PlayModeSubPanel::PlayModeSubPanel(SixSinesEditor &e) : HasEditor(e)
     oscontrolLab = std::make_unique<jcmp::RuledLabel>();
     oscontrolLab->setText("OpenSoundControl");
     addAndMakeVisible(*oscontrolLab);
-    oscInstanceSelector = std::make_unique<jcmp::MenuButton>();
-    oscInstanceSelector->setLabelAndTitle("OSC Input Off", "OSC Input Port");
-    oscInstanceSelector->setOnCallback([this]() { showOscInputMenu(); });
-    addAndMakeVisible(*oscInstanceSelector);
+    oscInputSelector = std::make_unique<jcmp::MenuButton>();
+    oscInputSelector->setLabelAndTitle("OSC Input Off", "OSC Input Port");
+    oscInputSelector->setOnCallback([this]() { showOscMenu(true); });
+    addAndMakeVisible(*oscInputSelector);
+    
+    oscOutputSelector = std::make_unique<jcmp::MenuButton>();
+    oscOutputSelector->setLabelAndTitle("OSC Output Off", "OSC Output Port");
+    oscOutputSelector->setOnCallback([this]() { showOscMenu(false); });
+    addAndMakeVisible(*oscOutputSelector);
 
     setEnabledState();
 }
@@ -267,7 +272,8 @@ void PlayModeSubPanel::resized()
 
     auto oscl = jlo::VList().withWidth(2 * skinny).withAutoGap(uicMargin);
     oscl.add(titleLabelGaplessLayout(oscontrolLab));
-    oscl.add(jlo::Component(*oscInstanceSelector).withHeight(uicLabelHeight));
+    oscl.add(jlo::Component(*oscInputSelector).withHeight(uicLabelHeight));
+    oscl.add(jlo::Component(*oscOutputSelector).withHeight(uicLabelHeight));
     lo.add(oscl);
 
     lo.doLayout();
@@ -403,27 +409,45 @@ void PlayModeSubPanel::setEnabledState()
     repaint();
 }
 
-void PlayModeSubPanel::showOscInputMenu()
+void PlayModeSubPanel::showOscMenu(bool isInput)
 {
     auto p = juce::PopupMenu();
-    p.addSectionHeader("OSC Input Port");
+    if (isInput)
+        p.addSectionHeader("OSC Input Port");
+    else
+        p.addSectionHeader("OSC Output Port");
     p.addSeparator();
     auto currentPort = 0;
     for (auto ipo : {0, 7000, 7100, 7200, 7300, 7400, 7500})
     {
         std::string txt = "OSC Input Off";
-        if (ipo > 0)
+        if (!isInput)
+            txt = "OSC Output Off";
+        if (ipo > 0 && isInput)
             txt = "OSC Input Port " + std::to_string(ipo);
+        if (ipo > 0 && !isInput)
+            txt = "OSC Output Port " + std::to_string(ipo);
         p.addItem(txt, true, ipo == currentPort,
-                  [w = juce::Component::SafePointer(this), ipo, txt]()
+                  [w = juce::Component::SafePointer(this), ipo, isInput, txt]()
                   {
                       if (!w)
                           return;
-                      w->oscInstanceSelector->setLabelAndTitle(txt, txt);
-                      Synth::MainToAudioMsg msg;
-                      msg.action = Synth::MainToAudioMsg::Action::SET_OSC_INPUT_PORT;
-                      msg.value = ipo;
-                      w->editor.mainToAudio.push(msg);
+                      if (isInput)
+                      {
+                          w->oscInputSelector->setLabelAndTitle(txt, txt);
+                          Synth::MainToAudioMsg msg;
+                          msg.action = Synth::MainToAudioMsg::Action::SET_OSC_INPUT_PORT;
+                          msg.value = ipo;
+                          w->editor.mainToAudio.push(msg);
+                      }
+                      else
+                      {
+                          w->oscOutputSelector->setLabelAndTitle(txt, txt);
+                          Synth::MainToAudioMsg msg;
+                          msg.action = Synth::MainToAudioMsg::Action::SET_OSC_OUTPUT_PORT;
+                          msg.value = ipo;
+                          w->editor.mainToAudio.push(msg);
+                      }
                   });
     }
     p.showMenuAsync(juce::PopupMenu::Options().withParentComponent(&editor));
