@@ -202,7 +202,7 @@ PlayModeSubPanel::PlayModeSubPanel(SixSinesEditor &e) : HasEditor(e)
     oscInputSelector->setLabelAndTitle("OSC Input Off", "OSC Input Port");
     oscInputSelector->setOnCallback([this]() { showOscMenu(true); });
     addAndMakeVisible(*oscInputSelector);
-    
+
     oscOutputSelector = std::make_unique<jcmp::MenuButton>();
     oscOutputSelector->setLabelAndTitle("OSC Output Off", "OSC Output Port");
     oscOutputSelector->setOnCallback([this]() { showOscMenu(false); });
@@ -418,8 +418,13 @@ void PlayModeSubPanel::showOscMenu(bool isInput)
         p.addSectionHeader("OSC Output Port");
     p.addSeparator();
     auto currentPort = 0;
-    for (auto ipo : {0, 7000, 7100, 7200, 7300, 7400, 7500})
+    for (int i = 0; i < 21; ++i)
     {
+        int ipo = 0;
+        if (i > 0 && isInput)
+            ipo = 7000 + (i - 1);
+        if (i > 0 && !isInput)
+            ipo = 8000 + (i - 1);
         std::string txt = "OSC Input Off";
         if (!isInput)
             txt = "OSC Output Off";
