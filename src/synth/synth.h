@@ -369,21 +369,13 @@ struct Synth
         if (lagHandler.active)
             lagHandler.instantlySnap();
 
-        auto curr = lagHead;
-        lagHead = nullptr;
-        while (curr)
+        for (auto &p: paramLagSet)
         {
-            curr->lag.snapToTarget();
-            curr->value = curr->lag.v;
-            auto cc = curr;
-            curr = curr->nextLag;
-            if (curr)
-            {
-                curr->prevLag = nullptr;
-            }
-            cc->nextLag = nullptr;
-            cc->prevLag = nullptr;
+            p.lag.snapToTarget();
+            p.value = p.lag.v;
         }
+        paramLagSet.removeAll();
+
         patch.dirty = false;
         doFullRefresh = true;
         readyForStream = true;
@@ -403,7 +395,7 @@ struct Synth
 
     void reapplyControlSettings();
 
-    Param *lagHead{nullptr};
+    sst::cpputils::active_set_overlay<Param> paramLagSet;
 
     sst::basic_blocks::dsp::VUPeak vuPeak;
     int32_t updateVuEvery{(int32_t)(48000 * 2.5 / 60 / blockSize)}; // approx
