@@ -17,7 +17,7 @@
 #include "sst/cpputils/constructors.h"
 #include "sst/basic-blocks/mechanics/block-ops.h"
 #include "sst/basic-blocks/dsp/PanLaws.h"
-
+#include "sst/osc-adapter/osc_adapter.h"
 #include "libMTSClient.h"
 
 namespace baconpaul::six_sines

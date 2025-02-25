@@ -39,7 +39,13 @@
 #include "mono_values.h"
 #include "mod_matrix.h"
 #include "sst/basic-blocks/dsp/LagCollection.h"
-#include "sst/osc-adapter/osc_adapter.h"
+// #include "sst/osc-adapter/osc_adapter.h"
+
+namespace sst::osc_adapter
+{
+class OSCAdapter;
+}
+
 namespace baconpaul::six_sines
 {
 struct Synth
@@ -369,7 +375,7 @@ struct Synth
         if (lagHandler.active)
             lagHandler.instantlySnap();
 
-        for (auto &p: paramLagSet)
+        for (auto &p : paramLagSet)
         {
             p.lag.snapToTarget();
             p.value = p.lag.v;
@@ -402,7 +408,7 @@ struct Synth
     int32_t lastVuUpdate{updateVuEvery};
 
     const clap_host_t *clapHost{nullptr};
-    sst::osc_adapter::OSCAdapter* oscAdapter{nullptr};
+    sst::osc_adapter::OSCAdapter *oscAdapter{nullptr};
 };
 } // namespace baconpaul::six_sines
 #endif // SYNTH_H
