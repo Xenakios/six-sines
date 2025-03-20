@@ -84,6 +84,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     }
     void deactivate() noexcept override
     {
+        
         if (oscAdapter)
         {
             oscAdapter->stop();
