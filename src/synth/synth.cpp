@@ -44,6 +44,29 @@ Synth::Synth(bool mo)
     std::fill(rState.begin(), rState.end(), nullptr);
 
     reapplyControlSettings();
+    resetSoloState();
+
+    /*
+     * Internal consistency checks
+     */
+    bool anyWarn{false};
+    for (auto &s : monoValues.modMatrixConfig.sources)
+    {
+        if (s.id >= patch.output.modsource[0].meta.maxVal ||
+            s.id < patch.output.modsource[0].meta.minVal)
+        {
+            SXSNLOG("WARNING: Source " << s.group << "/" << s.name << " with id " << s.id
+                                       << " is outside of param range "
+                                       << patch.output.modsource[0].meta.minVal << " to "
+                                       << patch.output.modsource[0].meta.maxVal);
+            anyWarn = true;
+        }
+    }
+    if (anyWarn)
+    {
+        SXSNLOG("Six Sines will termiante");
+        std::terminate();
+    }
 }
 
 Synth::~Synth()
@@ -439,7 +462,7 @@ void Synth::addToVoiceList(Voice *v)
 
 Voice *Synth::removeFromVoiceList(Voice *cvoice)
 {
-    if (patch.output.portaContinuation.value > 0.5 && voiceCount == 1)
+    if (patch.output.portaContMode.value > 0.5 && voiceCount == 1)
     {
         portaContinuation.sourceKey =
             cvoice->voiceValues.key + cvoice->voiceValues.portaDiff * cvoice->voiceValues.portaSign;
@@ -448,8 +471,7 @@ Voice *Synth::removeFromVoiceList(Voice *cvoice)
         portaContinuation.dKey = -cvoice->voiceValues.dPorta * cvoice->voiceValues.portaSign;
 
         portaContinuation.active = true;
-        portaContinuation.updateEveryBlock =
-            (int)std::round(patch.output.portaContinuation.value) == 1;
+        portaContinuation.updateEveryBlock = (int)std::round(patch.output.portaContMode.value) == 2;
     }
     else
     {
@@ -565,6 +587,11 @@ void Synth::processUIQueue(const clap_output_events_t *outq)
                 reapplyControlSettings();
             }
 
+            if (dest->adhocFeatures & Param::AdHocFeatureValues::SOLO)
+            {
+                resetSoloState();
+            }
+
             auto d = patch.dirty;
             if (!d)
             {
@@ -599,6 +626,8 @@ void Synth::processUIQueue(const clap_output_events_t *outq)
         break;
         case MainToAudioMsg::STOP_AUDIO:
         {
+            if (lagHandler.active)
+                lagHandler.instantlySnap();
             voiceManager->allSoundsOff();
             audioRunning = false;
         }
@@ -633,7 +662,9 @@ void Synth::processUIQueue(const clap_output_events_t *outq)
         break;
         case MainToAudioMsg::SEND_REQUEST_RESCAN:
         {
+            onMainRescanParams = true;
             audioToUi.push({AudioToUIMsg::DO_PARAM_RESCAN});
+            clapHost->request_callback(clapHost);
         }
         break;
         case MainToAudioMsg::EDITOR_ATTACH_DETATCH:
@@ -744,6 +775,34 @@ void Synth::pushFullUIRefresh()
     audioToUi.push({AudioToUIMsg::SET_PATCH_DIRTY_STATE, patch.dirty});
     audioToUi.push(
         {AudioToUIMsg::SEND_SAMPLE_RATE, 0, (float)hostSampleRate, (float)engineSampleRate});
+}
+
+void Synth::resetSoloState()
+{
+    bool anySolo = false;
+    for (auto &mn : patch.mixerNodes)
+    {
+        anySolo = anySolo || (mn.solo.value > 0.5);
+    }
+
+    for (auto &mn : patch.mixerNodes)
+    {
+        mn.isMutedDueToSoloAway = anySolo && !(mn.solo.value > 0.5);
+    }
+}
+
+void Synth::onMainThread()
+{
+    bool ex{true}, re{false};
+    if (onMainRescanParams.compare_exchange_strong(ex, re))
+    {
+        auto pe = static_cast<const clap_host_params_t *>(
+            clapHost->get_extension(clapHost, CLAP_EXT_PARAMS));
+        if (pe)
+        {
+            pe->rescan(clapHost, CLAP_PARAM_RESCAN_VALUES | CLAP_PARAM_RESCAN_TEXT);
+        }
+    }
 }
 
 } // namespace baconpaul::six_sines

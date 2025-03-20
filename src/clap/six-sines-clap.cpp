@@ -84,7 +84,6 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     }
     void deactivate() noexcept override
     {
-        
         if (oscAdapter)
         {
             oscAdapter->stop();
@@ -94,6 +93,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
     }
     void onMainThread() noexcept override
     {
+        engine->onMainThread();
         if (oscAdapter)
             oscAdapter->onMainThread();
     }
@@ -269,7 +269,7 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
             {
                 auto nevt = reinterpret_cast<const clap_event_note *>(nextEvent);
                 auto nid = nevt->note_id;
-                // nid = -1; // see issue #168
+                // nid = -1;
                 vm->processNoteOffEvent(nevt->port_index, nevt->channel, nevt->key, nid,
                                         nevt->velocity);
             }
@@ -428,7 +428,10 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
         {
             if (_host.canUseGui() && clapJuceShim->isEditorAttached())
             {
+                // SXSNLOG("onZoomChanged " << f);
                 auto s = f * clapJuceShim->getGuiScale();
+                guiSetSize(baconpaul::six_sines::ui::SixSinesEditor::edWidth * s,
+                           baconpaul::six_sines::ui::SixSinesEditor::edHeight * s);
                 _host.guiRequestResize(baconpaul::six_sines::ui::SixSinesEditor::edWidth * s,
                                        baconpaul::six_sines::ui::SixSinesEditor::edHeight * s);
             }
@@ -436,10 +439,11 @@ struct SixSinesClap : public plugHelper_t, sst::clap_juce_shim::EditorProvider
 
         onShow = [e = res.get()]()
         {
+            // SXSNLOG("onShow with zoom factor " << e->zoomFactor);
             e->setZoomFactor(e->zoomFactor);
             return true;
         };
-        res->sneakyStartupGrabFrom(engine->patch);
+        // res->sneakyStartupGrabFrom(engine->patch);
         res->repaint();
 
         return res;

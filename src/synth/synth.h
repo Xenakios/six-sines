@@ -136,6 +136,7 @@ struct Synth
 
         void endVoiceCreationTransaction(uint16_t, uint16_t, uint16_t, int32_t, float) {}
 
+        void discardHostVoice(int32_t vid) {}
         void terminateVoice(Voice *voice)
         {
             voice->voiceValues.setGated(false);
@@ -258,6 +259,7 @@ struct Synth
             }
         }
         void setVoicePolyphonicParameterModulation(Voice *, uint32_t, double) {}
+        void setVoiceMonophonicParameterModulation(Voice *, uint32_t, double) {}
         void setPolyphonicAftertouch(Voice *v, int8_t a) { v->voiceValues.polyAt = a / 127.0; }
 
         void setVoiceMIDIMPEChannelPitchBend(Voice *v, uint16_t b)
@@ -392,6 +394,7 @@ struct Synth
     {
         doFullRefresh = true;
         reapplyControlSettings();
+        resetSoloState();
 
         for (auto &[i, p] : patch.paramMap)
         {
@@ -399,7 +402,11 @@ struct Synth
         }
     }
 
+    std::atomic<bool> onMainRescanParams{false};
+    void onMainThread();
+
     void reapplyControlSettings();
+    void resetSoloState();
 
     sst::cpputils::active_set_overlay<Param> paramLagSet;
 

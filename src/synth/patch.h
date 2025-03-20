@@ -52,6 +52,7 @@ struct Param : pats::ParamBase, sst::cpputils::active_set_overlay<Param>::partic
         ENVTIME = 1 << 0,     // tag for ADSR envs we changed version 2-3
         TRIGGERMODE = 1 << 1, // trigger mode for when we nuked voice
         WAVEFORM = 1 << 2,
+        SOLO = 1 << 3
     };
 
     bool isTemposynced() const
@@ -376,7 +377,7 @@ struct Patch : pats::PatchBase<Patch, Param>
                   {
                       return md_t()
                           .asInt()
-                          .withRange(0, 2048)
+                          .withRange(0, 8192)
                           .withID(id0 + 2 * i)
                           .withName(name + " Mod Source " + std::to_string(i))
                           .withGroupName(name)
@@ -798,6 +799,14 @@ struct Patch : pats::PatchBase<Patch, Param>
                                                               {1, "Ring Modulation"},
                                                               {2, "Linear FM"},
                                                               {3, "Exponential FM"}})),
+              modulationScale(intMd()
+                                  .withRange(0, 2)
+                                  .withDefault(0)
+                                  .withName(name(idx) + " RM Rescaling")
+                                  .withGroupName(name(idx))
+                                  .withID(id(36, idx))
+                                  .withUnorderedMapFormatting(
+                                      {{0, "Signal"}, {1, "abs(Signal)"}, {2, "(1+Signal)/2"}})),
               DAHDSRMixin(name(idx), id(2, idx), false, false, id(50, idx)),
               LFOMixin(name(idx), id(14, idx)),
               lfoToDepth(floatMd()
@@ -838,7 +847,7 @@ struct Patch : pats::PatchBase<Patch, Param>
 
         Param level;
         Param active;
-        Param modulationMode;
+        Param modulationMode, modulationScale;
         Param lfoToDepth;
         Param envToLevel;
         Param overdrive;
@@ -863,7 +872,7 @@ struct Patch : pats::PatchBase<Patch, Param>
 
         std::vector<Param *> params()
         {
-            std::vector<Param *> res{&level,      &active,     &modulationMode,
+            std::vector<Param *> res{&level,      &active,     &modulationMode, &modulationScale,
                                      &lfoToDepth, &envToLevel, &overdrive};
             appendDAHDSRParams(res);
             appendLFOParams(res);
@@ -942,6 +951,11 @@ struct Patch : pats::PatchBase<Patch, Param>
                              .withGroupName(name(idx))
                              .withID(id(42, idx))
                              .withDefault(1.f)),
+              solo(boolMd()
+                       .withName(name(idx) + " Solo")
+                       .withGroupName(name(idx))
+                       .withID(id(43, idx))
+                       .withDefault(false)),
               ModulationMixin(name(idx), id(50, idx)),
               modtarget(scpu::make_array_lambda<Param, numModsPer>(
                   [this, idx](int i)
@@ -958,6 +972,7 @@ struct Patch : pats::PatchBase<Patch, Param>
             index = idx;
             appendLFOTargetName(targetList);
             appendDAHDSRTargetName(targetList);
+            solo.adhocFeatures = Param::AdHocFeatureValues::SOLO;
         }
 
         std::string name(int idx) const { return "Op " + std::to_string(idx + 1) + " Mixer"; }
@@ -971,13 +986,15 @@ struct Patch : pats::PatchBase<Patch, Param>
             return name(index);
         }
 
-        Param level, pan, lfoToLevel, lfoToPan, envToLevel;
+        Param level, pan, lfoToLevel, lfoToPan, envToLevel, solo;
         Param active;
         std::array<Param, numModsPer> modtarget;
+        bool isMutedDueToSoloAway{false};
 
         std::vector<Param *> params()
         {
-            std::vector<Param *> res{&level, &active, &pan, &lfoToLevel, &lfoToPan, &envToLevel};
+            std::vector<Param *> res{&level,    &active,     &pan, &lfoToLevel,
+                                     &lfoToPan, &envToLevel, &solo};
             appendDAHDSRParams(res);
             appendLFOParams(res);
 
@@ -1241,14 +1258,14 @@ struct Patch : pats::PatchBase<Patch, Param>
                             .withLog2SecondsFormatting()
                             .withMilisecondsBelowOneSecond()
                             .withCustomMinDisplay("Off")),
-              portaContinuation(intMd()
-                                    .withID(id(43))
-                                    .withName(name() + " Porta Continuation")
-                                    .withRange(0, 1)
-                                    .withDefault(0)
-                                    .withGroupName(name())
-                                    .withUnorderedMapFormatting(
-                                        {{0, "Reset On Voice"}, {1, "Restart From Last"}})),
+              portaContMode(
+                  intMd()
+                      .withID(id(43))
+                      .withName(name() + " Porta Continuation")
+                      .withRange(0, 2)
+                      .withDefault(0)
+                      .withGroupName(name())
+                      .withUnorderedMapFormatting({{0, "Reset"}, {1, "Pause"}, {2, "Continue"}})),
 
               pianoModeActive(md_t()
                                   .asBool()
@@ -1378,7 +1395,7 @@ struct Patch : pats::PatchBase<Patch, Param>
         uint32_t id(int f) const { return idBase + f; }
 
         Param level, velSensitivity, playMode;
-        Param bendUp, bendDown, polyLimit, defaultTrigger, portaTime, portaContinuation,
+        Param bendUp, bendDown, polyLimit, defaultTrigger, portaTime, portaContMode,
             pianoModeActive;
         Param unisonCount, unisonSpread, uniPhaseRand, unisonPan;
         Param mpeActive, mpeBendRange;
@@ -1398,7 +1415,7 @@ struct Patch : pats::PatchBase<Patch, Param>
                                      &polyLimit,
                                      &defaultTrigger,
                                      &portaTime,
-                                     &portaContinuation,
+                                     &portaContMode,
                                      &pianoModeActive,
                                      &unisonCount,
                                      &unisonSpread,
